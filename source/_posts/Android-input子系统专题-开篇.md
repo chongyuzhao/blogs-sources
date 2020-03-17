@@ -1,7 +1,9 @@
 ---
 title: Android input子系统专题--开篇
 date: 2020-03-15 13:16:00
-tags: Android input
+tags: 
+- Android
+- input
 ---
 
 # Android Input的分层
@@ -9,7 +11,6 @@ tags: Android input
 ​	Android的input子系统大概是在2019年的3、4月份开始接触的，主要是因为负责Input部分的同事离职了，我就当仁不让地接上了这个话。Android是一个交互式的操作系统，显示与输入都是一个重要的组成部分。Android支持多种多样的输入设备，如触摸、游戏手柄、按键、鼠标、键盘等等。
 
 ​	基于Android与Linux的关系，Android的input子系统也是可分成三层：设备驱动层 - inputflinger层 - 应用处理层。设备驱动层与inputflinger层之间是通过Linux的设备驱动节点进行连接，inputflinger与应用层之前是通过InputChannel来进行连接。
-
 ```mermaid
 graph BT
 Driver[设备驱动] == VFS ==> InputFlinger[InputFlinger]
