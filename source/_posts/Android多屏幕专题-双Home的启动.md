@@ -123,7 +123,7 @@ tags:
  558             return false;
  559         }
  560
-     561         if (!StorageManager.isUserKeyUnlocked(mCurrentUser)) {
+ 561         if (!StorageManager.isUserKeyUnlocked(mCurrentUser)) {
  562             // Can't launch home on secondary displays if device is still locked.
  563             return false;
  564         }
@@ -137,6 +137,7 @@ tags:
  572         return true;
  573     }
 ```
+
 
 ​	`mService.mSupportsMultiDisplay`是指系统是否支持多屏幕，其决定因素有：
 
@@ -338,3 +339,94 @@ tags:
 
 ### canStartHomeOnDisplay
 
+```java
+ 582     boolean canStartHomeOnDisplay(ActivityInfo homeInfo, int displayId,
+ 583             boolean allowInstrumenting) {
+ 584         if (mService.mFactoryTest == FactoryTest.FACTORY_TEST_LOW_LEVEL
+ 585                 && mService.mTopAction == null) {
+ 586             // We are running in factory test mode, but unable to find the factory test app, so
+ 587             // just sit around displaying the error message and don't try to start anything.
+ 588             return false;
+ 589         }
+ 590
+ 591         final WindowProcessController app =
+ 592                 mService.getProcessController(homeInfo.processName, homeInfo.applicationInfo.uid);
+ 593         if (!allowInstrumenting && app != null && app.isInstrumenting()) {
+ 594             // Don't do this if the home app is currently being instrumented.
+ 595             return false;
+ 596         }
+ 597
+ 598         if (displayId == DEFAULT_DISPLAY || (displayId != INVALID_DISPLAY
+ 599                 && displayId == mService.mVr2dDisplayId)) {
+ 600             // No restrictions to default display or vr 2d display.
+ 601             return true;
+ 602         }
+ 603
+ 604         if (!shouldPlaceSecondaryHomeOnDisplay(displayId)) {
+ 605             return false;
+ 606         }
+ 607
+ 608         final boolean supportMultipleInstance = homeInfo.launchMode != LAUNCH_SINGLE_TASK
+ 609                 && homeInfo.launchMode != LAUNCH_SINGLE_INSTANCE;
+ 610         if (!supportMultipleInstance) {
+ 611             // Can't launch home on secondary displays if it requested to be single instance.
+ 612             return false;
+ 613         }
+ 614
+ 615         return true;
+ 616     }
+```
+
+​	`canStartHomeOnDisplay`的核心是`shouldPlaceSecondaryHomeOnDisplay`，而这个就是我们第一关的内容，因此毫无疑问，这关轻松闯过。
+
+### startHomeActivity
+
+​	闯完三关后，就到了真正的启动，从前面的参数可以知道，HomeActivity的启动必定加上`FLAG_ACTIVITY_NEW_TASK`这个flag参数，表示HomeActivity是要在新的Task中启动的，这很容易理解。
+
+​	我们继续看`startHomeActivity`是如何将Home启动到副屏上的：
+
+```java
+171     void startHomeActivity(Intent intent, ActivityInfo aInfo, String reason, int displayId) {
+172         final ActivityOptions options = ActivityOptions.makeBasic();
+173         options.setLaunchWindowingMode(WINDOWING_MODE_FULLSCREEN);
+174         if (!ActivityRecord.isResolverActivity(aInfo.name)) {
+175             // The resolver activity shouldn't be put in home stack because when the foreground is
+176             // standard type activity, the resolver activity should be put on the top of current
+177             // foreground instead of bring home stack to front.
+178             options.setLaunchActivityType(ACTIVITY_TYPE_HOME);
+179         }
+180         options.setLaunchDisplayId(displayId);
+181         mLastHomeActivityStartResult = obtainStarter(intent, "startHomeActivity: " + reason)
+182                 .setOutActivity(tmpOutRecord)
+183                 .setCallingUid(0)
+184                 .setActivityInfo(aInfo)
+185                 .setActivityOptions(options.toBundle())
+186                 .execute();
+187         mLastHomeActivityStartRecord = tmpOutRecord[0];
+188         final ActivityDisplay display =
+189                 mService.mRootActivityContainer.getActivityDisplay(displayId);
+190         final ActivityStack homeStack = display != null ? display.getHomeStack() : null;
+191         if (homeStack != null && homeStack.mInResumeTopActivity) {
+192             // If we are in resume section already, home activity will be initialized, but not
+193             // resumed (to avoid recursive resume) and will stay that way until something pokes it
+194             // again. We need to schedule another resume.
+195             mSupervisor.scheduleResumeTopActivities();
+196         }
+197     }
+```
+
+​	显示到副屏的关键是--`options.setLaunchDisplayId(displayId)`，ActivityOptions是Activity的启动参数，setLaunchDisplayId就是设置了Activity在哪个display上进行启动。而这个详细的过程可以看am命令在副屏上启动Activity的详细分析。
+
+
+
+## 总结
+
+​	总的来说，AndroidQ已经支持得十分好，如果需要打开双Home启动，那么可以通过以下步骤去进行。
+
+​	1.最好将设备设置为非LowRam设备。
+
+​	2.打开多窗口模式，如果是非LowRam设备，默认也是打开的。
+
+​	3.准备一个SecondaryHome应用，Android提供的Launcher3其实已经支持，但也可以自行配置。
+
+​	4.通过`settings put global force_desktop_mode_on_external_displays 1`去打开双Home。

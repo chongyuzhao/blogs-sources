@@ -134,7 +134,7 @@ tags:
 </ports>
 ```
 
-​	顶层以<ports>为tag，子节点为一组display-input配置。display属性是一个整形值，对应了displayId，input属性是输入设备的描述。回顾`InputDevice::configure`方法的内容，input的字段对应了InputDevice的location字段。displayId我们很好理解，就是显示设备在Display系统中的idz中，我们可以通过`dumpsys display`来获取，而这个location值也可以通过`dumpsys input`来获取设备对应的值。
+​	顶层以<ports>为tag，子节点为一组display-input配置。display属性是一个整形值，对应了displayId，input属性是输入设备的描述。回顾`InputDevice::configure`方法的内容，input的字段对应了InputDevice的location字段。displayId我们很好理解，就是显示设备在Display系统中的idz中，我们可以通过`dumpsys display`来获取，而这个location值也可以通过`dumpsys input`来获取设备对应的值。display的值是一个整数，范围是[0,255]。
 
 ​	我们再看以下location这个值是从哪里来的：
 
